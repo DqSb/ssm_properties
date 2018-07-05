@@ -1,0 +1,4 @@
+driver=com.mysql.jdbc.Driver
+url=jdbc:mysql://localhost:3306/db_crm
+username=java
+password=123456

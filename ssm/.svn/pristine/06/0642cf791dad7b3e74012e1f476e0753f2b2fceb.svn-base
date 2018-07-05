@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:p="http://www.springframework.org/schema/p"
+	   xmlns:tx="http://www.springframework.org/schema/tx" xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:task="http://www.springframework.org/schema/task" xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:mybatis="http://mybatis.org/schema/mybatis-spring"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+			http://www.springframework.org/schema/tx
+			http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+			http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context-4.0.xsd
+			http://www.springframework.org/schema/task
+			http://www.springframework.org/schema/task/spring-task-4.0.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+			http://mybatis.org/schema/mybatis-spring
+			http://mybatis.org/schema/mybatis-spring.xsd">
+
+	<import resource="classpath:spring/spring-shiro.xml" />
+
+
+	<context:annotation-config/>
+	<context:component-scan base-package="com.tdh.cmdb,tdh.thunder.base,tdh.thunder.common,tdh.thunder.filestore" />
+	<!-- 能够事物管理使用注解的方式 -->
+    <tx:annotation-driven proxy-target-class="true" transaction-manager="transactionManager" />
+	<!-- 声明一个事物管理 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager" p:dataSource-ref="dataSource" />
+
+	<mybatis:scan
+			base-package="com.tdh.cmdb.dal.dao, com.tdh.cmdb.dal.dao.sys,tdh.thunder.base.city.dao,tdh.thunder.base.dict.dao"/>
+  
+	<!-- 定义 SqlSessionFactory, notice that configLocation is not needed when you use MapperFactoryBean -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="configLocation" value="classpath:spring/mybatis-config.xml" />
+		<property name="mapperLocations" value="classpath*:com/tdh/cmdb/**/*Mapper.xml" />
+	</bean>
+	
+	
+	
+	<!-- 读取jdbc.properties文件，配置数据源 -->
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" p:driverClass="${jdbc.driver}" p:jdbcUrl="${jdbc.url}" p:user="${jdbc.user}"
+		p:password="${jdbc.password}" p:acquireIncrement="${jdbc.acquireIncrement}" p:idleConnectionTestPeriod="${jdbc.idleConnectionTestPeriod}" p:maxPoolSize="${jdbc.maxPoolSize}"
+		p:minPoolSize="${jdbc.minPoolSize}" p:maxStatements="${jdbc.maxStatements}" />
+
+	<bean id="fileStore" class="${fs.store}" scope="singleton" />
+
+	<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<property name="dataSource">
+			<ref bean="dataSource" />
+		</property>
+	</bean>
+
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
+	<aop:config proxy-target-class="true">
+		<aop:pointcut id="allServiceMethods" expression="execution(* com.tdh.cmdb.biz.*.*(..))" />
+		<aop:advisor advice-ref="defaultTransactionAdvice" pointcut-ref="allServiceMethods" />
+
+		<aop:aspect id="logAspect" ref="ServiceLogInterceptor">
+			<aop:around pointcut-ref="allServiceMethods" method="log" />
+		</aop:aspect>
+	</aop:config>
+
+	<aop:aspectj-autoproxy proxy-target-class="true" />
+
+
+	<bean id="ServiceLogInterceptor" class="tdh.thunder.logging.api.InvocationLogInterceptor">
+		<property name="disableMethodDetailedReturnPattern" value="search*,list*" />
+		<property name="disableMethodDetailedReturnTypePattern"
+				  value="*List" />
+	</bean>
+
+	<tx:advice id="defaultTransactionAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="query*" read-only="true" />
+			<tx:method name="list*" read-only="true" />
+			<tx:method name="search*" read-only="true" />
+			<tx:method name="get*" read-only="true" />
+			<tx:method name="count*" read-only="true" />
+			<tx:method name="*" propagation="REQUIRED" rollback-for="Exception" />
+		</tx:attributes>
+	</tx:advice>
+	
+</beans>
+	 
